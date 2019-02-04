@@ -1,0 +1,6 @@
+# FROM : https://help.github.com/articles/dealing-with-line-endings
+# Set default behaviour, in case users don't have core.autocrlf set.
+#* text=auto
+
+# Text eol to lf force on every host
+*.sh  eol=lf
