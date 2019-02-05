@@ -1,0 +1,510 @@
+#!/bin/sh
+
+set -o nounset
+set -o errexit
+
+START_DIR=$(pwd)
+
+GIT_HOOKS_CMD_NAME="$(basename "$0" | sed -e 's/-/ /')"
+GIT_HOOKS_CMD_DIR="$(dirname "$(which git-hooks)")"
+
+GIT_HOOKS_LAST_HOOK=
+
+# Hook name required by some commands
+GIT_HOOKS_HOOK_NAME=
+
+# Config location option
+GIT_HOOKS_CONFIG_LOCATION=
+
+# Path to directory with triggers. Depends on GIT_HOOKS_CONFIG_LOCATION.
+GIT_HOOKS_TRIGGERS_DIRNAME=".git/hooks-triggers"
+GIT_HOOKS_TRIGGERS_DIR=
+
+# Load user environment variable
+set +o nounset
+GIT_HOOKS_TRIGGERS_USER_DIR=$(echo "${GIT_HOOKS_TRIGGERS_USER_DIR}")
+set -o nounset
+if [[ -z "${GIT_HOOKS_TRIGGERS_USER_DIR}" ]]; then
+  GIT_HOOKS_TRIGGERS_USER_DIR="~/${GIT_HOOKS_TRIGGERS_DIRNAME}"
+fi
+
+# Verbose mode option. Allowed:
+# `-vv` : verbose mode, show info messages
+# `-vvv`: very verbose, show all, inclusive debug messages
+# TODO: Implement verbose mode.
+GIT_HOOKS_VERBOSE_MODE=0
+
+# Enable removing triggers on uninstall.
+# TODO: Consider to remove all settings on this mode.
+GIT_HOOKS_PURGE_MODE=
+
+# Number of options detected and should be shifted before run hooks.
+GIT_HOOKS_OPTIONS_NUM=0
+
+FCR='\033[1;31m' # Red
+FCG='\033[1;32m' # Green
+FCY='\033[0;33m' # Yellow
+FCS='\033[0;37m' # Light gray (silver)
+NC='\033[0m'
+
+GIT_HOOKS_NAME="Git Hooks"
+GIT_HOOKS_VERSION="1.0"
+GIT_HOOKS_URL="https://github.com/slavcodev/git-hooks"
+GIT_HOOKS_ABOUT="${FCG}$GIT_HOOKS_NAME${NC} version ${FCY}$GIT_HOOKS_VERSION${NC}"
+GIT_HOOKS_HELP="$GIT_HOOKS_ABOUT
+  A tool to manage project, user, and global Git hooks.
+
+${FCY}Usage:${NC}
+  $GIT_HOOKS_CMD_NAME list [<file-option>] <hook-name>
+  $GIT_HOOKS_CMD_NAME trigger [<file-option>] <hook-name> [-v | -vv | -vvv] [-- <arguments>...]
+  $GIT_HOOKS_CMD_NAME install [<file-option>] [-d | --dir <triggers-dir>]
+  $GIT_HOOKS_CMD_NAME uninstall [<file-option>] [--purge]
+  $GIT_HOOKS_CMD_NAME make [<file-option>] [-d | --dir <triggers-dir>]
+  $GIT_HOOKS_CMD_NAME -h | --help
+  $GIT_HOOKS_CMD_NAME --version
+
+${FCY}Options:${NC}
+  ${FCG}-h, --help${NC}                          Show this screen.
+  ${FCG}--version${NC}                           Show version.
+  ${FCG}list <hook-name>${NC}                    List hooks from configs executed by $GIT_HOOKS_NAME for <hook-name> (such as pre-commit).
+  ${FCG}trigger <hook-name>${NC}                 Trigger the hooks for <hook-name> (such as pre-commit).
+  ${FCG}install${NC}                             Configure Git to call \`$GIT_HOOKS_CMD_NAME trigger <hook-name>\` on hooks.
+  ${FCG}uninstall${NC}                           Configure Git to avoid $GIT_HOOKS_NAME.
+  ${FCG}make${NC}                                Make triggers used by $GIT_HOOKS_NAME.
+                                      If triggers not found during installation, they are created automatically,
+                                      use this command when a copy is needed (e.q. with specific hooks location or verbose mode).
+  ${FCG}<file-option>${NC}                       This option tells which config location should be used.
+  ${FCG}-d, --dir <triggers-dir>${NC}            The path to the triggers to use. Defaults to \`\$HOME/$GIT_HOOKS_TRIGGERS_DIRNAME\` for global
+                                      and system installation, otherwise to \`$GIT_HOOKS_TRIGGERS_DIRNAME\` inside the project directory.
+                                      For details run \`git config -h\` and see \"Config file location\" section.
+  ${FCG}--purge${NC}                             Remove triggers on uninstall.
+  ${FCG}<arguments>...${NC}                      The arguments which are passed to each hook.
+  ${FCG}-v, -vv, -vvv${NC}                       Control verbose mode.
+
+$GIT_HOOKS_URL
+"
+
+REQUIREMENTS=(
+  "pwd"
+  "basename"
+  "dirname"
+  "git"
+)
+
+HOOKS_LIST=(
+  "applypatch-msg"
+  "pre-applypatch"
+  "post-applypatch"
+  "pre-commit"
+  "prepare-commit-msg"
+  "commit-msg"
+  "post-commit"
+  "pre-rebase"
+  "post-checkout"
+  "post-merge"
+  "pre-push"
+  "pre-receive"
+  "update"
+  "post-receive"
+  "post-update"
+  "push-to-checkout"
+  "pre-auto-gc"
+  "post-rewrite"
+  "sendemail-validate"
+  "fsmonitor-watchman"
+  "p4-pre-submit"
+)
+
+check_requirements() {
+  for command in ${REQUIREMENTS[@]}; do
+    command -v "$command" >/dev/null 2>&1 || die "$command not found. Please make sure this is installed and in PATH."
+  done
+}
+
+log() {
+  # Consider as info
+  if [[ $# -eq 0 ]]; then
+    if [[ ${GIT_HOOKS_VERBOSE_MODE} -ge 2 ]]; then
+      echo "$@"
+    fi
+    return
+  fi
+
+  case $1 in
+    "error" )
+      shift 1
+      if [[ ${GIT_HOOKS_VERBOSE_MODE} -ge 0 ]]; then
+        echo >&2 "${FCR}$@${NC}"
+      fi
+      ;;
+    "warning" )
+      shift 1
+      if [[ ${GIT_HOOKS_VERBOSE_MODE} -ge 1 ]]; then
+        echo "${FCY}$@${NC}"
+      fi
+      ;;
+    "info" | "debug" )
+      shift 1
+      if [[ ${GIT_HOOKS_VERBOSE_MODE} -ge 2 ]]; then
+        echo "$@"
+      fi
+      ;;
+    "trace" )
+      shift 1
+      if [[ ${GIT_HOOKS_VERBOSE_MODE} -ge 3 ]]; then
+        echo "${FCS}$@${NC}"
+      fi
+      ;;
+    * )
+      log error "Invalid log level: $1"
+      ;;
+  esac
+}
+
+ask() {
+    echo "$@ [Y/n] \c"; read answer
+    case "${answer}" in
+        y* |Y* | "" ) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+die() {
+  die_with_status 1 "$@"
+}
+
+die_with_status() {
+  status=$1
+  shift 1
+  log error "$@"
+  exit "$status"
+}
+
+report_invalid_usage() {
+  die "Error: $1\nRun \`$GIT_HOOKS_CMD_NAME -h\` for details"
+}
+
+report_hook_error() {
+  die "Hook failed: $GIT_HOOKS_LAST_HOOK"
+}
+
+report_start() {
+  echo "${FCG}$@${NC}"
+}
+
+report_done() {
+  [[ $# > 0 ]] && echo "${FCG}✓ $@${NC}" || echo "${FCG}✓ Done${NC}"
+}
+
+get_git_dir() {
+  echo "$(dirname "$(git rev-parse --absolute-git-dir)")"
+  [[ $? -eq 0 ]] || report_invalid_usage "$GIT_HOOKS_NAME must be run inside a git repository"
+}
+
+parse_git_options() {
+  # No location option is specified, use default.
+  if [[ $# == 0 ]]; then
+    GIT_HOOKS_CONFIG_LOCATION=
+    GIT_HOOKS_TRIGGERS_DIR="$(get_git_dir)/${GIT_HOOKS_TRIGGERS_DIRNAME}"
+    return
+  fi
+
+  case "$1" in
+    --global|--system )
+      GIT_HOOKS_CONFIG_LOCATION=$1
+      GIT_HOOKS_TRIGGERS_DIR="~/${GIT_HOOKS_TRIGGERS_DIRNAME}"
+      GIT_HOOKS_OPTIONS_NUM=$((GIT_HOOKS_OPTIONS_NUM + 1))
+      ;;
+    --local|--worktree )
+      GIT_HOOKS_CONFIG_LOCATION=$1
+      GIT_HOOKS_TRIGGERS_DIR="$(get_git_dir)/${GIT_HOOKS_TRIGGERS_DIRNAME}"
+      GIT_HOOKS_OPTIONS_NUM=$((GIT_HOOKS_OPTIONS_NUM + 1))
+      ;;
+    -f|--file|--blob )
+      GIT_HOOKS_CONFIG_LOCATION="$1 $2"
+      GIT_HOOKS_TRIGGERS_DIR="$(get_git_dir)/${GIT_HOOKS_TRIGGERS_DIRNAME}"
+      GIT_HOOKS_OPTIONS_NUM=$((GIT_HOOKS_OPTIONS_NUM + 2))
+      ;;
+    * )
+      GIT_HOOKS_CONFIG_LOCATION=
+      GIT_HOOKS_TRIGGERS_DIR="$(get_git_dir)/${GIT_HOOKS_TRIGGERS_DIRNAME}"
+  esac
+}
+
+parse_commands_options() {
+  while [[ $# > 0 ]]; do
+    case "$1" in
+      -d|--dir )
+        GIT_HOOKS_TRIGGERS_DIR=$2
+        GIT_HOOKS_OPTIONS_NUM=$((GIT_HOOKS_OPTIONS_NUM + 2))
+        shift 2
+        ;;
+      --purge)
+        GIT_HOOKS_PURGE_MODE=1
+        GIT_HOOKS_OPTIONS_NUM=$((GIT_HOOKS_OPTIONS_NUM + 1))
+        shift 1
+        ;;
+      -v )
+        GIT_HOOKS_VERBOSE_MODE=1
+        GIT_HOOKS_OPTIONS_NUM=$((GIT_HOOKS_OPTIONS_NUM + 1))
+        shift 1
+        ;;
+      -vv )
+        GIT_HOOKS_VERBOSE_MODE=2
+        GIT_HOOKS_OPTIONS_NUM=$((GIT_HOOKS_OPTIONS_NUM + 1))
+        shift 1
+        ;;
+      -vvv )
+        GIT_HOOKS_VERBOSE_MODE=3
+        GIT_HOOKS_OPTIONS_NUM=$((GIT_HOOKS_OPTIONS_NUM + 1))
+        shift 1
+        ;;
+      -- )
+        GIT_HOOKS_OPTIONS_NUM=$((GIT_HOOKS_OPTIONS_NUM + 1))
+        return
+        ;;
+      * )
+        report_invalid_usage "Unknown option: $1"
+        ;;
+    esac
+  done
+}
+
+parse_hook_name_option() {
+  if [[ $# < 1 ]]; then
+    report_invalid_usage "Missing hook name"
+  fi
+
+  if [[ ! " ${HOOKS_LIST[@]} " =~ " $1 " ]]; then
+    report_invalid_usage "Unknown hook name: $1"
+  fi
+
+  GIT_HOOKS_HOOK_NAME=$1
+  GIT_HOOKS_OPTIONS_NUM=$((GIT_HOOKS_OPTIONS_NUM + 1))
+}
+
+list_hooks() {
+  local name=$1
+  local key=$2
+  shift 2
+
+  echo "Hooks for ${FCY}\"${key//\\./.}${NC}\""
+
+  local items=$(git config ${GIT_HOOKS_CONFIG_LOCATION} --get-regexp ${key})
+
+  for item in ${items}; do
+    if [[ "$item" =~ ${key} ]]; then
+      echo "The \"${item##*.}\" hooks"
+      continue
+    fi
+
+    echo "- \"${item}\""
+  done
+}
+
+make_hooks() {
+  # Generate triggers based on templates file (however there are no templates for all supported hooks).
+  if [[ -z ${#HOOKS_LIST} ]]; then
+    local templates_dir="$(dirname "$(git --man-path)")/git-core/templates/hooks"
+    local files=$(find "${templates_dir}" -type f -name "*\.sample" | sed -e 's/.sample$//')
+    HOOKS_LIST=(files)
+  fi
+
+  if [[ -d "${GIT_HOOKS_TRIGGERS_DIR}" ]]; then
+    ask "Directory ${FCY}\"${GIT_HOOKS_TRIGGERS_DIR}\"${NC} already exists\nWould you like to override it?" || die "Exit by user"
+    rm -Rf "${GIT_HOOKS_TRIGGERS_DIR}"
+  fi
+
+  log debug "Creating directory \"$GIT_HOOKS_TRIGGERS_DIR\""
+  mkdir -p "${GIT_HOOKS_TRIGGERS_DIR}"
+
+  for name in "${HOOKS_LIST[@]}"; do
+    log debug "Writing trigger: $name"
+    echo "#!/bin/sh\n\ngit hooks trigger \$(basename \$0) -- \$@" > "${GIT_HOOKS_TRIGGERS_DIR}/$name"
+    chmod +x "${GIT_HOOKS_TRIGGERS_DIR}/$name"
+  done
+}
+
+install_hooks() {
+  if [[ ! -d "${GIT_HOOKS_TRIGGERS_DIR}" ]]; then
+    log debug "Triggers directory not found"
+    make_hooks
+  fi
+
+  local original_hook_path=$(git config ${GIT_HOOKS_CONFIG_LOCATION} core.hooksPath)
+
+  if [[ "$original_hook_path" == "$GIT_HOOKS_TRIGGERS_DIR" ]]; then
+    die_with_status 0 "$GIT_HOOKS_NAME already installed"
+  fi
+
+  if [[ -n "$original_hook_path" ]]; then
+    log debug "Backing up core.hooksPath"
+    git config ${GIT_HOOKS_CONFIG_LOCATION} hooks.originalHooksPath "$original_hook_path"
+  fi
+
+  log debug "Setting core.hooksPath"
+  git config ${GIT_HOOKS_CONFIG_LOCATION} core.hooksPath "$GIT_HOOKS_TRIGGERS_DIR"
+  git config ${GIT_HOOKS_CONFIG_LOCATION} hooks.triggersDir "$GIT_HOOKS_TRIGGERS_DIR"
+}
+
+uninstall_hooks() {
+  local triggers_home=$(git config ${GIT_HOOKS_CONFIG_LOCATION} --default ${GIT_HOOKS_TRIGGERS_DIR} hooks.triggersDir)
+  local hook_path=$(git config ${GIT_HOOKS_CONFIG_LOCATION} core.hooksPath)
+
+  if [[ "$hook_path" != "$triggers_home" ]]; then
+    die_with_status 0 "$GIT_HOOKS_NAME is not installed"
+  fi
+
+  local original_hook_path=$(git config ${GIT_HOOKS_CONFIG_LOCATION} hooks.originalHooksPath)
+
+  if [[ -n "$original_hook_path" && "$original_hook_path" != "${GIT_HOOKS_TRIGGERS_DIR}" ]]; then
+    log debug "Restoring original core.hooksPath"
+    git config ${GIT_HOOKS_CONFIG_LOCATION} core.hooksPath "$original_hook_path"
+    git config ${GIT_HOOKS_CONFIG_LOCATION} --unset hooks.originalHooksPath
+  else
+    log debug "Removing core.hooksPath"
+    git config ${GIT_HOOKS_CONFIG_LOCATION} --unset core.hooksPath
+  fi
+
+  log debug "Removing $GIT_HOOKS_NAME settings"
+  set +o errexit
+  git config ${GIT_HOOKS_CONFIG_LOCATION} --remove-section hooks 2> /dev/null
+  set -o errexit
+
+  if [[ -n "${GIT_HOOKS_PURGE_MODE}" ]]; then
+    log debug "Removing triggers"
+    rm -rf "$triggers_home"
+  fi
+}
+
+execute_hook() {
+  local file=$1
+  shift
+
+  if [[ -x "${file}" ]]; then
+    log debug "Executing the hook: ${file}"
+    export GIT_HOOKS_LAST_HOOK="${file} $@"
+    "${file}" $@
+  fi
+}
+
+trigger_hooks() {
+  local name=$1
+  local key=$2
+  shift 2
+  local items=$(git config ${GIT_HOOKS_CONFIG_LOCATION} --get-regexp ${key})
+
+  for item in ${items}; do
+    if [[ "$item" =~ ${key} ]]; then
+      log debug "Processing the \"${item##*.}\" hooks"
+      continue
+    fi
+
+    if [[ -f ${item} ]]; then
+      local hook="$item"
+      execute_hook ${hook} $@
+      continue
+    fi
+
+    if [[ -d ${item} ]]; then
+      log debug "Looking for hooks in the directory: ${item}"
+
+      for hook in $(find ${item} -type f -name "*${name}"); do
+        execute_hook ${hook} $@
+      done
+
+      if [[ -d "${item}/${name}.d" ]]; then
+        for hook in $(find "${item}/${name}.d" -type f); do
+          execute_hook ${hook} $@
+        done
+      fi
+
+      continue
+    fi
+
+    log error "Cannot process: ${item}"
+  done
+}
+
+if [[ $# == 0 ]]; then
+  echo "${GIT_HOOKS_HELP}"
+  exit
+fi
+
+case "$1" in
+  --version )
+    echo "${GIT_HOOKS_ABOUT}"
+    ;;
+  -h|--help|-?|"" )
+    echo "${GIT_HOOKS_HELP}"
+    ;;
+  install )
+    shift 1
+    check_requirements
+    parse_git_options $@
+    parse_commands_options $@
+    shift ${GIT_HOOKS_OPTIONS_NUM}; GIT_HOOKS_OPTIONS_NUM=0
+
+    report_start "$GIT_HOOKS_NAME is installing..."
+    install_hooks
+    report_done "$GIT_HOOKS_NAME was installed successfully"
+    ;;
+  uninstall )
+    shift 1
+    check_requirements
+    parse_git_options $@
+    parse_commands_options $@
+    shift ${GIT_HOOKS_OPTIONS_NUM}; GIT_HOOKS_OPTIONS_NUM=0
+
+    report_start "$GIT_HOOKS_NAME is uninstalling..."
+    uninstall_hooks
+    report_done "$GIT_HOOKS_NAME was uninstalled successfully"
+    ;;
+  list )
+    shift 1
+    check_requirements
+    parse_git_options $@
+    parse_hook_name_option $@
+    parse_commands_options $@
+    shift ${GIT_HOOKS_OPTIONS_NUM}; GIT_HOOKS_OPTIONS_NUM=0
+
+    report_start "$GIT_HOOKS_NAME is listing hooks..."
+    list_hooks "$GIT_HOOKS_HOOK_NAME" "hooks\.pre-trigger\."
+    list_hooks "$GIT_HOOKS_HOOK_NAME" "hooks\.$GIT_HOOKS_HOOK_NAME\."
+    list_hooks "$GIT_HOOKS_HOOK_NAME" "hooks\.post-trigger\."
+    report_done
+    ;;
+  make )
+    shift 1
+    check_requirements
+    parse_git_options $@
+    parse_commands_options $@
+    shift ${GIT_HOOKS_OPTIONS_NUM}; GIT_HOOKS_OPTIONS_NUM=0
+
+    report_start "$GIT_HOOKS_NAME is generating triggers for all supported hooks..."
+    make_hooks
+    report_done
+    ;;
+  trigger )
+    shift 1
+    check_requirements
+    parse_git_options $@
+    parse_hook_name_option $@
+    parse_commands_options $@
+    shift ${GIT_HOOKS_OPTIONS_NUM}; GIT_HOOKS_OPTIONS_NUM=0
+
+    trap report_hook_error ERR
+
+    log debug "$GIT_HOOKS_NAME triggering \"$GIT_HOOKS_HOOK_NAME\""
+    trigger_hooks "$GIT_HOOKS_HOOK_NAME" "hooks\.pre-trigger\." "$@"
+    trigger_hooks "$GIT_HOOKS_HOOK_NAME" "hooks\.$GIT_HOOKS_HOOK_NAME\." "$@"
+    trigger_hooks "$GIT_HOOKS_HOOK_NAME" "hooks\.post-trigger\." "$@"
+    log debug "Done"
+    ;;
+  -* )
+    report_invalid_usage "Unknown option: $1"
+    ;;
+  * )
+    report_invalid_usage "Invalid command"
+    ;;
+esac
