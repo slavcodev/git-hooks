@@ -31,7 +31,7 @@ to tell Git to run `git hooks trigger <hook-name>` command.
 On trigger the hooks, `git-hooks` looks in git configs for list of hooks needed to execute.
 
 For example for `pre-commit` hooks look like:
-~~~
+~~~gitconfig
 [hooks "pre-commit"]
   # Using path to directory, `git-hooks` will execute scripts which name ends to hook name,
   # or all executable files in sub-directory with name `<hook-name>.d`.
@@ -55,7 +55,7 @@ _A relative path is taken as relative to the directory where the hooks are run
 ([see more in documentation](https://git-scm.com/docs/githooks#_description))._
 
 The two special sections in configs are used by `git-hooks` to look for common hooks for all events:
-~~~
+~~~gitconfig
 [hooks "pre-trigger"]
   # Trigger these hooks before specific hooks. 
   foo="~/global-hooks"
@@ -68,7 +68,7 @@ The two special sections in configs are used by `git-hooks` to look for common h
 Keep in mind, The config `core.hooksPath` overrides the Git config and it would not execute 
 scripts from `.git/hooks` directory inside your project. If you have hooks in that directory,
 you have to add it config, i.e.
-~~~
+~~~gitconfig
 [hooks "post-trigger"]
   default=".git/hooks"
 ~~~
@@ -84,14 +84,14 @@ The `git-hooks` respects the config location supported by `git-config`
 ([see more in documentation](https://git-scm.com/docs/git-config)).
 
 Example how ot install `git-hooks` globally:
-~~~
+~~~bash
 git hooks install --global
 ~~~
 
 ## Documentation
 
 For more details see `git-hooks` help:
-~~~
+~~~bash
 git hooks --help
 ~~~
 
@@ -103,6 +103,8 @@ Please see [CONTRIBUTING](CONTRIBUTING.md) and [CODE OF CONDUCT](CODE_OF_CONDUCT
 
 Thanks to [Benjamin Meyer](https://benjamin-meyer.blogspot.com/2010/06/managing-project-user-and-global-git.html)
 for inspiration.
+
+**Enjoy coding ❤️**
 
 [ico-license]: https://img.shields.io/badge/License-BSD%202--Clause-blue.svg?style=for-the-badge
 [link-license]: LICENSE

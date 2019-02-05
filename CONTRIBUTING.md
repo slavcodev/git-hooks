@@ -8,4 +8,4 @@ This is a small guide to present it:
 - Please see [CODE OF CONDUCT](CODE_OF_CONDUCT.md)
 - Be peaceful and patient
 
-**Enjoy coding ❤️**!
+**Enjoy coding ❤️**
