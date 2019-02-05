@@ -82,7 +82,8 @@ ${FCY}Options:${NC}
   ${FCG}-v, -vv, -vvv${NC}                       Control verbose mode.
 
 $GIT_HOOKS_URL
-"
+
+> Enjoy coding ❤️"
 
 REQUIREMENTS=(
   "pwd"
