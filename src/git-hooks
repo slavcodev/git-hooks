@@ -31,7 +31,6 @@ fi
 # Verbose mode option. Allowed:
 # `-vv` : verbose mode, show info messages
 # `-vvv`: very verbose, show all, inclusive debug messages
-# TODO: Implement verbose mode.
 GIT_HOOKS_VERBOSE_MODE=0
 
 # Enable removing triggers on uninstall.
