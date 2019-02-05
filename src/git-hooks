@@ -48,7 +48,7 @@ FCS='\033[0;37m' # Light gray (silver)
 NC='\033[0m'
 
 GIT_HOOKS_NAME="Git Hooks"
-GIT_HOOKS_VERSION="1.0"
+GIT_HOOKS_VERSION="1.0.1"
 GIT_HOOKS_URL="https://github.com/slavcodev/git-hooks"
 GIT_HOOKS_ABOUT="${FCG}$GIT_HOOKS_NAME${NC} version ${FCY}$GIT_HOOKS_VERSION${NC}"
 GIT_HOOKS_HELP="$GIT_HOOKS_ABOUT
@@ -441,9 +441,8 @@ case "$1" in
   install )
     shift 1
     check_requirements
-    parse_git_options $@
-    parse_commands_options $@
-    shift ${GIT_HOOKS_OPTIONS_NUM}; GIT_HOOKS_OPTIONS_NUM=0
+    parse_git_options $@; shift ${GIT_HOOKS_OPTIONS_NUM}; GIT_HOOKS_OPTIONS_NUM=0
+    parse_commands_options $@; shift ${GIT_HOOKS_OPTIONS_NUM}; GIT_HOOKS_OPTIONS_NUM=0
 
     report_start "$GIT_HOOKS_NAME is installing..."
     install_hooks
@@ -452,9 +451,8 @@ case "$1" in
   uninstall )
     shift 1
     check_requirements
-    parse_git_options $@
-    parse_commands_options $@
-    shift ${GIT_HOOKS_OPTIONS_NUM}; GIT_HOOKS_OPTIONS_NUM=0
+    parse_git_options $@; shift ${GIT_HOOKS_OPTIONS_NUM}; GIT_HOOKS_OPTIONS_NUM=0
+    parse_commands_options $@; shift ${GIT_HOOKS_OPTIONS_NUM}; GIT_HOOKS_OPTIONS_NUM=0
 
     report_start "$GIT_HOOKS_NAME is uninstalling..."
     uninstall_hooks
@@ -463,10 +461,9 @@ case "$1" in
   list )
     shift 1
     check_requirements
-    parse_git_options $@
-    parse_hook_name_option $@
-    parse_commands_options $@
-    shift ${GIT_HOOKS_OPTIONS_NUM}; GIT_HOOKS_OPTIONS_NUM=0
+    parse_git_options $@; shift ${GIT_HOOKS_OPTIONS_NUM}; GIT_HOOKS_OPTIONS_NUM=0
+    parse_hook_name_option $@; shift ${GIT_HOOKS_OPTIONS_NUM}; GIT_HOOKS_OPTIONS_NUM=0
+    parse_commands_options $@; shift ${GIT_HOOKS_OPTIONS_NUM}; GIT_HOOKS_OPTIONS_NUM=0
 
     report_start "$GIT_HOOKS_NAME is listing hooks..."
     list_hooks "$GIT_HOOKS_HOOK_NAME" "hooks\.pre-trigger\."
@@ -477,9 +474,8 @@ case "$1" in
   make )
     shift 1
     check_requirements
-    parse_git_options $@
-    parse_commands_options $@
-    shift ${GIT_HOOKS_OPTIONS_NUM}; GIT_HOOKS_OPTIONS_NUM=0
+    parse_git_options $@; shift ${GIT_HOOKS_OPTIONS_NUM}; GIT_HOOKS_OPTIONS_NUM=0
+    parse_commands_options $@; shift ${GIT_HOOKS_OPTIONS_NUM}; GIT_HOOKS_OPTIONS_NUM=0
 
     report_start "$GIT_HOOKS_NAME is generating triggers for all supported hooks..."
     make_hooks
@@ -488,10 +484,9 @@ case "$1" in
   trigger )
     shift 1
     check_requirements
-    parse_git_options $@
-    parse_hook_name_option $@
-    parse_commands_options $@
-    shift ${GIT_HOOKS_OPTIONS_NUM}; GIT_HOOKS_OPTIONS_NUM=0
+    parse_git_options $@; shift ${GIT_HOOKS_OPTIONS_NUM}; GIT_HOOKS_OPTIONS_NUM=0
+    parse_hook_name_option $@; shift ${GIT_HOOKS_OPTIONS_NUM}; GIT_HOOKS_OPTIONS_NUM=0
+    parse_commands_options $@; shift ${GIT_HOOKS_OPTIONS_NUM}; GIT_HOOKS_OPTIONS_NUM=0
 
     trap report_hook_error ERR
 
