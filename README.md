@@ -6,11 +6,11 @@ The simplest way to manage project, user, and global **[Git hooks](https://git-s
 
 ## Install
 
-Just download the `git-hooks` executable found in the root of this repository to a directory of your choice
+Just download the `git-hooks` executable found in the directory `src` of this repository to a directory of your choice
 and ensure that it is added to your PATH environment variable so `git-hooks` can be run.
 
 ~~~bash
-curl -o /usr/local/bin/git-hooks https://raw.githubusercontent.com/slavcodev/git-hooks/master/git-hooks
+curl -o /usr/local/bin/git-hooks https://raw.githubusercontent.com/slavcodev/git-hooks/master/src/git-hooks
 chmod +x /usr/local/bin/git-hooks
 ~~~
 
