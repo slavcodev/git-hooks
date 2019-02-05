@@ -18,6 +18,11 @@ Security - in case of vulnerabilities.
 
 _TBD_
 
+## [1.0.1] 2019-02-05
+
+## Fixed
+- Fix parsing command arguments
+
 ## [1.0.0] 2019-02-05
 
 Initial release.
