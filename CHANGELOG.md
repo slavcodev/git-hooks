@@ -1,4 +1,5 @@
 # Change Log
+
 All notable changes to this project will be documented in this file
 using the [Keep a CHANGELOG](http://keepachangelog.com/) principles.
 This project adheres to [Semantic Versioning](http://semver.org/).
@@ -18,9 +19,16 @@ Security - in case of vulnerabilities.
 
 _TBD_
 
+## [1.0.2] 2019-10-25
+
+### Fixed
+
+- Fix reading hooks paths
+
 ## [1.0.1] 2019-02-05
 
-## Fixed
+### Fixed
+
 - Fix parsing command arguments
 
 ## [1.0.0] 2019-02-05
