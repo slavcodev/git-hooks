@@ -420,7 +420,7 @@ trigger_hooks() {
   local name=$1
   local key=$2
   shift 2
-  local items=$(git config ${GIT_HOOKS_CONFIG_LOCATION} --get-regexp ${key})
+  local items=$(git config ${GIT_HOOKS_CONFIG_LOCATION} --type=path --get-regexp ${key})
 
   for item in ${items}; do
     if [[ "$item" =~ ${key} ]]; then
