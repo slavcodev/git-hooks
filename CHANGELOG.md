@@ -19,6 +19,12 @@ Security - in case of vulnerabilities.
 
 _TBD_
 
+## [1.0.3] 2020-05-10
+
+### Changed
+
+- Remove usage of Git sub-commands `git hooks` in favour of direct script call `git-hooks`
+
 ## [1.0.2] 2019-10-25
 
 ### Fixed
