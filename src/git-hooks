@@ -348,7 +348,7 @@ make_hooks() {
 
   for name in "${HOOKS_LIST[@]}"; do
     log debug "Writing trigger: $name"
-    echo "#!/bin/sh\n\ngit hooks trigger \$(basename \$0) -- \$@" > "${GIT_HOOKS_TRIGGERS_DIR}/$name"
+    echo "#!/bin/sh\n\ngit-hooks trigger \$(basename \$0) -- \$@" > "${GIT_HOOKS_TRIGGERS_DIR}/$name"
     chmod +x "${GIT_HOOKS_TRIGGERS_DIR}/$name"
   done
 }
