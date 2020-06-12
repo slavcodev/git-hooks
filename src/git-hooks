@@ -75,7 +75,7 @@ FCS='\033[0;37m' # Light gray (silver)
 NC='\033[0m'
 
 GIT_HOOKS_NAME="Git Hooks"
-GIT_HOOKS_VERSION="1.0.2"
+GIT_HOOKS_VERSION="1.0.3"
 GIT_HOOKS_URL="https://github.com/slavcodev/git-hooks"
 GIT_HOOKS_ABOUT="${FCG}$GIT_HOOKS_NAME${NC} version ${FCY}$GIT_HOOKS_VERSION${NC}"
 GIT_HOOKS_HELP="$GIT_HOOKS_ABOUT
@@ -348,7 +348,7 @@ make_hooks() {
 
   for name in "${HOOKS_LIST[@]}"; do
     log debug "Writing trigger: $name"
-    echo "#!/bin/sh\n\ngit hooks trigger \$(basename \$0) -- \$@" > "${GIT_HOOKS_TRIGGERS_DIR}/$name"
+    echo "#!/bin/sh\n\ngit-hooks trigger \$(basename \$0) -- \$@" > "${GIT_HOOKS_TRIGGERS_DIR}/$name"
     chmod +x "${GIT_HOOKS_TRIGGERS_DIR}/$name"
   done
 }

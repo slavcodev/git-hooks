@@ -14,8 +14,8 @@ curl -o /usr/local/bin/git-hooks https://raw.githubusercontent.com/slavcodev/git
 chmod +x /usr/local/bin/git-hooks
 ~~~
 
-Run `git hooks install` in a git project to tell it to use `git-hooks`
-and `git hooks uninstall` at any time to revert to your previous state.
+Run `git-hooks install` in a git project to tell it to use `git-hooks`
+and `git-hooks uninstall` at any time to revert to your previous state.
 _(Check options of these commands to specify installation)._
 
 ## TL;DR
@@ -26,7 +26,7 @@ such as testing, code linting, etc, but Git is limited to only one script per ev
 There is where `git-hooks` comes into play.
 
 The `git-hooks` utilizes the Git configs only. On installation, it configures `core.hooksPath`
-to tell Git to run `git hooks trigger <hook-name>` command.
+to tell Git to run `git-hooks trigger <hook-name>` command.
 
 On trigger the hooks, `git-hooks` looks in git configs for list of hooks needed to execute.
 
@@ -73,11 +73,6 @@ you have to add it config, i.e.
   default=".git/hooks"
 ~~~
 
-_A additional note on git sub-commands:
-When you type `git hooks` git actually looks for an executable called `git-hooks`.
-This is done automatically, so although we're invoking `git hooks` in the examples in this doc,
-you can also use `git-hooks` interchangeably._
-
 ## Locations
 
 The `git-hooks` respects the config location supported by `git-config`
@@ -85,14 +80,14 @@ The `git-hooks` respects the config location supported by `git-config`
 
 Example how ot install `git-hooks` globally:
 ~~~bash
-git hooks install --global
+git-hooks install --global
 ~~~
 
 ## Documentation
 
 For more details see `git-hooks` help:
 ~~~bash
-git hooks --help
+git-hooks --help
 ~~~
 
 ## Contributing
